@@ -1,9 +1,16 @@
 /* eslint-disable default-case */
 import React, { useState } from 'react';
+import { storage } from '../firebaseConfig';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+
+const metadata = {
+	contentType: 'image/jpeg',
+};
 
 const ImageUpload = () => {
 	const [image, setImage] = useState(null); // state lưu ảnh sau khi chọn
 	const [progress, setProgress] = useState(0); // state hiển thị phần trăm tải ảnh lên store
+	const [uploadedImages, setUploadedImages] = useState([]); // state hiển thị danh sách ảnh đã tải lên store
 
 	const handleChange = (e) => {
 		if (e.target.files[0]) {
@@ -12,7 +19,52 @@ const ImageUpload = () => {
 	};
 
 	const handleUpload = () => {
-		// xử lý chọn ảnh
+		const storageRef = ref(storage, `images/${image.name}`);
+
+		const uploadTask = uploadBytesResumable(storageRef, image, metadata);
+
+		// Register three observers:
+		// 1. 'state_changed' observer, called any time the state changes
+		// 2. Error observer, called on failure
+		// 3. Completion observer, called on successful completion
+		uploadTask.on(
+			'state_changed',
+			(snapshot) => {
+				// Observe state change events such as progress, pause, and resume
+				// Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
+				const progress =
+					(snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+				setProgress(progress);
+				console.log('Upload is ' + progress + '% done');
+				switch (snapshot.state) {
+					case 'paused':
+						console.log('Upload is paused');
+						break;
+					case 'running':
+						console.log('Upload is running');
+						break;
+				}
+			},
+			(error) => {
+				// Handle unsuccessful uploads
+			},
+			() => {
+				// Handle successful uploads on complete
+				// For instance, get the download URL: https://firebasestorage.googleapis.com/...
+				getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+					setUploadedImages([downloadURL, ...uploadedImages]);
+
+					alert(
+						'Upload image successfully, download URL: ' +
+							downloadURL
+					);
+
+					setImage(null);
+					setProgress(0);
+					console.log('File available at', downloadURL);
+				});
+			}
+		);
 	};
 
 	return (
@@ -53,6 +105,31 @@ const ImageUpload = () => {
 					</button>
 				)}
 			</div>
+			{uploadedImages.length > 0 && (
+				<div className="mt-4 container mx-auto">
+					<h2 className="text-lg font-semibold">Uploaded Images</h2>
+					<ul className="mt-2 grid grid-cols-3 gap-4">
+						{uploadedImages.map((url, index) => (
+							<li key={index} className="mb-2">
+								<img
+									src={url}
+									alt={`Uploaded ${index}`}
+									className="w-full object-cover rounded-md shadow-md"
+								/>
+
+								<a
+									href={url}
+									target="_blank"
+									rel="noreferrer"
+									className=" text-green-400"
+								>
+									Link
+								</a>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
 		</div>
 	);
 };
