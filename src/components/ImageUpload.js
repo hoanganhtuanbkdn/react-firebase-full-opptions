@@ -1,7 +1,12 @@
 /* eslint-disable default-case */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { storage } from '../firebaseConfig';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import {
+	ref,
+	uploadBytesResumable,
+	getDownloadURL,
+	listAll,
+} from 'firebase/storage';
 
 const metadata = {
 	contentType: 'image/jpeg',
@@ -67,6 +72,37 @@ const ImageUpload = () => {
 		);
 	};
 
+	const getListAllImages = () => {
+		const listRef = ref(storage, 'images');
+
+		// Find all the prefixes and items.
+		listAll(listRef)
+			.then(async (res) => {
+				res.prefixes.forEach((folderRef) => {
+					console.log('folderRef', folderRef);
+					// All the prefixes under listRef.
+					// You may call listAll() recursively on them.
+				});
+
+				const images = await Promise.all(
+					res.items.map(async (itemRef) => {
+						const url = await getDownloadURL(itemRef);
+
+						return url;
+					})
+				);
+				setUploadedImages(images);
+			})
+			.catch((error) => {
+				console.error('Error getting download URL:', error);
+
+				// Uh-oh, an error occurred!
+			});
+	};
+
+	useEffect(() => {
+		getListAllImages();
+	}, []);
 	return (
 		<div className="py-10">
 			<div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
@@ -108,26 +144,20 @@ const ImageUpload = () => {
 			{uploadedImages.length > 0 && (
 				<div className="mt-4 container mx-auto">
 					<h2 className="text-lg font-semibold">Uploaded Images</h2>
-					<ul className="mt-2 grid grid-cols-3 gap-4">
+					<div className="mt-2 masonry sm:masonry-sm md:masonry-md">
 						{uploadedImages.map((url, index) => (
-							<li key={index} className="mb-2">
+							<div
+								key={index}
+								className="rounded-lg mb-6 break-inside"
+							>
 								<img
 									src={url}
 									alt={`Uploaded ${index}`}
-									className="w-full object-cover rounded-md shadow-md"
+									className="h-auto max-w-full rounded-lg"
 								/>
-
-								<a
-									href={url}
-									target="_blank"
-									rel="noreferrer"
-									className=" text-green-400"
-								>
-									Link
-								</a>
-							</li>
+							</div>
 						))}
-					</ul>
+					</div>
 				</div>
 			)}
 		</div>
